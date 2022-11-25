@@ -1,0 +1,150 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>自動雨量站資料-無人自動站雨量資料</title>
+    <style>
+        
+        body {
+            background-color: lightblue;
+        }
+         
+        h1 {
+            color: white;
+            text-align: center;
+        }
+
+        p {
+            font-family: verdana;
+            font-size: 20px;
+        }
+
+
+        thead tr th {
+            position: sticky;
+            top: 0;
+        }
+
+        div {
+            overflow: auto;
+            width: 100%;
+            height: 850px; /* 固定高度 */
+        }
+
+        td, th {
+            border: 1px solid gray;
+            width: 100px;
+            height: 30px;
+        }
+
+        th {
+            background-color: lightgoldenrodyellow;
+        }
+
+
+        table {
+            table-layout: fixed;
+            width: 2000px; /* 固定寬度 */
+        }
+
+        td:first-child, td:nth-child(2), td:nth-child(3), th:first-child,th:nth-child(2), th:nth-child(3) {
+            position: sticky;
+            left: 0; /* 首行永遠固定於左 */
+            z-index: 1;
+            background-color: lightpink;
+        }
+
+        thead tr th {
+            position: sticky;
+            top: 0; /* 列首永遠固定於上 */
+        }
+
+        th:first-child, th:nth-child(2), th:nth-child(3) {
+            z-index: 2;
+            background-color: lightgoldenrodyellow;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+    <script type="text/javascript">
+        //中央氣象局開放資料平臺之資料擷取API
+        //https://opendata.cwb.gov.tw/dist/opendata-swagger.html?urls.primaryName=openAPI
+        //工作站清單
+        //var CWBRainData;
+        //取得氣象局開放資料
+        function GetCWBRainData() {
+            $.ajax({
+                method: "GET",
+                async: false,
+                url: "https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=rdec-key-123-45678-011121314",
+                data: { stationId: "C0F000,C0F0A0,C0F0B0,C0F0C0,C0F0D0,C0F0E0,C0F850,C0F861,C0F930,C0F970,C0F9A0,C0F9I0,C0F9K0,C0F9L0,C0F9M0,C0F9N0,C0F9O0,C0F9P0,C0F9Q0,C0F9R0,C0F9S0,C0F9T0,C0F9U0,C0F9V0,C0F9X0,C0F9Y0,C0F9Z0,C0FA00,C0FA10,C0FA20,C0FA30", elementName: "RAIN,MIN_10,HOUR_3,HOUR_6,HOUR_12,HOUR_24,NOW" },
+                //data:{jq:"LManagerlist"},
+                dataType: "json",
+                beforeSend: function () {
+                    $("#CWBRain").html("wait....");
+                }
+            }
+            ).done(function (CWBRainData) {
+                //console.log(data);
+                if (CWBRainData.success == "true") {
+                    var records = CWBRainData.records.location;
+                    var fields = CWBRainData.result.fields;
+                    //$('#getRain').append()
+                    //var cols = Object.keys(CWBRainData.records);
+                    console.log(fields);
+                    console.log(records);
+                    var strHTML = "";
+                   
+                    strHTML = "<table><thead><tr><th>緯度(lat)</th><th>經度(lon)</th><th>站名(locationName)</th><th>站代碼(stationId)</th>";
+                    strHTML += "<th>時間(time.obsTime)</th><th>雨(weatherElement.RAIN)</th><th>十分鐘(weatherElement.MIN_10)</th>";
+                    strHTML += "<th>3小時(weatherElement.HOUR_3)</th><th>6小時(weatherElement.HOUR_6)</th><th>12小時(weatherElement.HOUR_12)</th>";
+                    strHTML += "<th>24小時(weatherElement.HOUR_24)</th><th>現在(weatherElement.NOW)</th></tr></thead><tbody>";
+
+                    $("#CWBRain").html(strHTML);
+                    //$("#CWBRain").append("<td>時間(time.obsTime)</td><td>雨(weatherElement.RAIN)</td><td>十分鐘(weatherElement.MIN_10)</td>");
+                    //$("#CWBRain").append("<td>3小時(weatherElement.HOUR_3)</td><td>6小時(weatherElement.HOUR_6)</td><td>12小時(weatherElement.HOUR_12)</td>");
+                    //$("#CWBRain").append("<td>24小時(weatherElement.HOUR_24)</td><td>現在(weatherElement.NOW)</td></th>");
+
+                    for (var i = 0; i < records.length; i++) {
+                        strHTML += "<tr>";
+
+                        strHTML += "<td>" + records[i].lat + "</td>";
+                        strHTML += "<td>" + records[i].lon + "</td>";
+                        strHTML += "<td>" + records[i].locationName + "</td>";
+                        strHTML += "<td>" + records[i].stationId + "</td>";
+                        strHTML += "<td>" + records[i].time.obsTime + "</td>";
+                        for (var j = 0; j < records[i].weatherElement.length; j++) {
+                            strHTML += "<td>" + records[i].weatherElement[j].elementValue + "</td>";
+                        }
+
+                        strHTML += "</tr>";
+                    }
+
+                    strHTML += "</tbody></table>";
+                    $("#CWBRain").html(strHTML);
+                }
+                else {
+                    alert("ERROR");
+                }
+                //LManaList = data;
+                //alert(data[0].msg);
+            });
+
+        }
+        $(function () {
+            $('#getRain').click(function () {
+                alert('GET');
+                GetCWBRainData();
+            });
+
+
+        });
+    </script>
+</head>
+<body>
+    自動雨量站資料-無人自動站雨量資料
+    
+        <input id="getRain" type="button" value="GET" />
+    <div id="CWBRain"> </div>
+    
+</body>
+</html>
