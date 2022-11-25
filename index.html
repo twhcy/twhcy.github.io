@@ -11,22 +11,88 @@
     </style>
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
         integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
+    <script src="proj4-compressed.js"></script>
+    <script src="proj4leaflet.js"></script>
     <script>
+        /*
+        proj4.defs([
+            [
+                'EPSG:43260',
+                '+title=WGS 84 (long/lat) +proj=longlat +ellps=WGS84 +datum=WGS84 +units=degrees'],
+            [
+                'EPSG:38260',
+                '+title=TWD97 TM2+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=GRS80 +units=公尺 +no_defs'
+            ],
+            [
+                'EPSG:3828',
+                '+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=aust_SA'
+            ]
+        ]);
+        var EPSG3826 = new proj4.Proj('EPSG:38260');//TWD97 121分帶
+        var EPSG3828 = new proj4.Proj('EPSG:3828');//TWD67 121分帶
+        var EPSG4326 = new proj4.Proj('EPSG:43260');//WGS84
+        */
+
+        var myLines = [{
+            "type": "LineString",
+            "coordinates": [[ 120.6822, 24.2133], [120.6825 ,24.2138], [120.6822,24.2140, ], [120.6830 ,24.2140], [120.6836 ,24.2145], [120.6834 ,24.2155]]
+        }, {
+            "type": "LineString",
+            "coordinates": [[120.532, 23.922], [120.538, 23.925], [120.540, 23.922], [120.540, 23.930], [120.545, 23.936]]
+        }];
+
+        var myStyle = {
+            "color": "#ff7800",
+            "weight": 5,
+            "opacity": 0.65
+        };
+
+
+        var twd97CRS = new L.Proj.CRS("EPSG:3826",
+            "+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs",
+            {
+                resolutions: [
+                    4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8
+                ]
+            });
         document.addEventListener('DOMContentLoaded', (event) => {
             console.log('DOM fully loaded and parsed');
-            var map = L.map('map').setView([51.505, -0.09], 13);
+
+            map = new L.Map('map', {
+                //crs: twd97CRS,
+                continuousWorld: true
+            });
+            //https://api.geosition.com/tile/osm-bright-3006/{z}/{x}/{y}.png
+            //https://tile.openstreetmap.org/{z}/{x}/{y}.png
+
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
+                maxZoom: 24,
+                minZoom: 0,
                 attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             }).addTo(map);
+            L.geoJSON(myLines, {
+                style: myStyle
+            }).addTo(map);
+
+            map.setView([24.132, 120.922], 10);
+
             //var marker = L.marker([51.5, -0.09]).addTo(map);
             map.on('click', function (e) {
                 //console.log(e);
-                //console.log(e.latlng.lat);
+                console.log(e.latlng);
+                //proj4(proj4('EPSG:3857'),proj4('EPSG:4326'), [x座標值,y座標值]);
+                //console.log(proj4(EPSG4326, EPSG3826, [e.latlng.lng, e.latlng.lat]));
+                //console.log(proj4(proj4('EPSG:4326'),proj4('EPSG:3826'), [e.latlng.lng, e.latlng.lat]));
+                var twd94xy = proj4(proj4('EPSG:4326'), proj4('EPSG:3826'), [e.latlng.lng, e.latlng.lat]);
+
                 document.querySelector("#mlat").value = e.latlng.lat;
                 document.querySelector("#mlng").value = e.latlng.lng;
+                document.querySelector("#mx").value = twd94xy[0];
+                document.querySelector("#my").value = twd94xy[1];
+
                 var marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
             });
+
 
 
         });
@@ -36,8 +102,9 @@
 </head>
 
 <body>
-    HELLO...
-    lat<input type="text" id="mlat" value="0">lng<input type="text" id="mlng" value="0">
+    HELLO...<br>
+    lat<input type="text" id="mlat" value="0">lng<input type="text" id="mlng" value="0"><br>
+    x<input type="text" id="mx" value="0">y<input type="text" id="my" value="0"><br>
     <div id="map"></div>
 </body>
 
