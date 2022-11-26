@@ -13,6 +13,7 @@
         integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
     <script src="proj4-compressed.js"></script>
     <script src="proj4leaflet.js"></script>
+    <script src="leaflet.geometryutil.js"></script>
     <script>
         /*
         proj4.defs([
@@ -35,7 +36,7 @@
 
         var myLines = [{
             "type": "LineString",
-            "coordinates": [[ 120.6822, 24.2133], [120.6825 ,24.2138], [120.6822,24.2140, ], [120.6830 ,24.2140], [120.6836 ,24.2145], [120.6834 ,24.2155]]
+            "coordinates": [[120.6822, 24.2133], [120.6825, 24.2138], [120.6822, 24.2140,], [120.6830, 24.2140], [120.6836, 24.2145], [120.6834, 24.2155]]
         }, {
             "type": "LineString",
             "coordinates": [[120.532, 23.922], [120.538, 23.925], [120.540, 23.922], [120.540, 23.930], [120.545, 23.936]]
@@ -46,6 +47,26 @@
             "weight": 5,
             "opacity": 0.65
         };
+
+        var myLine = [[120.9722, 24.2133], [120.9725, 24.2138], [120.9822, 24.2140,], [120.9830, 24.2140], [120.9836, 24.2145], [120.9834, 24.2155]];
+
+        myLine.forEach(function (val, indx, arr) {
+            var xval = 0.0;
+            xval = arr[indx][0];
+            //console.log(xval);
+            //console.log(val);
+            arr[indx][0] = arr[indx][1];
+            arr[indx][1] = xval;
+        });
+        //        console.log(myLine);
+        var marker = null;
+        var markerClosestPolyline1 = null;
+
+        function init() {
+            if (marker) map.removeLayer(marker);
+            if (markerClosestPolyline1) map.removeLayer(markerClosestPolyline1);
+            polyline1.setStyle({ color: 'blue' });
+        }
 
 
         var twd97CRS = new L.Proj.CRS("EPSG:3826",
@@ -62,6 +83,8 @@
                 //crs: twd97CRS,
                 continuousWorld: true
             });
+            var polyline1 = L.polyline(myLine, { color: 'blue', className: 'polyline1' }).addTo(map);
+
             //https://api.geosition.com/tile/osm-bright-3006/{z}/{x}/{y}.png
             //https://tile.openstreetmap.org/{z}/{x}/{y}.png
 
@@ -74,10 +97,12 @@
                 style: myStyle
             }).addTo(map);
 
+
             map.setView([24.132, 120.922], 10);
 
             //var marker = L.marker([51.5, -0.09]).addTo(map);
             map.on('click', function (e) {
+                init();
                 //console.log(e);
                 console.log(e.latlng);
                 //proj4(proj4('EPSG:3857'),proj4('EPSG:4326'), [x座標值,y座標值]);
@@ -90,7 +115,19 @@
                 document.querySelector("#mx").value = twd94xy[0];
                 document.querySelector("#my").value = twd94xy[1];
 
-                var marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+                //var marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+
+                var p_vertices = document.getElementById('p_vertices').checked,
+                    p_tolerance = document.getElementById('p_tolerance').value !== '' ? parseInt(document.getElementById('p_tolerance').value) : Infinity,
+                    p_withVertices = document.getElementById('p_withVertices').checked,                    
+                    closestPointToPolyline1 = L.GeometryUtil.closest(map, polyline1, e.latlng, p_vertices),                    
+                    closestLayer = L.GeometryUtil.closestLayer(map, bicycle.getLayers().concat(coorsLayer.getLayers(), polyline1, polyline2, polygon1), e.latlng),
+                    closestLayerSnap = L.GeometryUtil.closestLayerSnap(_map, [polyline1, polygon1, polyline2], e.latlng, p_tolerance, p_withVertices),
+                    closestOnSegment = L.GeometryUtil.closestOnSegment(_map, e.latlng, llSegment[0], llSegment[1]);
+                marker = L.marker(e.latlng).addTo(map).bindPopup(e.latlng + '<br/>' + e.layerPoint).openPopup();
+                markerClosestPolyline1 = L.marker(myLine).addTo(map).bindPopup('Closest point on myLine');
+
+
             });
 
 
@@ -104,8 +141,27 @@
 <body>
     HELLO...<br>
     lat<input type="text" id="mlat" value="0">lng<input type="text" id="mlng" value="0"><br>
-    x<input type="text" id="mx" value="0">y<input type="text" id="my" value="0"><br>
+    twd97_x<input type="text" id="mx" value="0">twd97_y<input type="text" id="my" value="0"><br>
     <div id="map"></div>
+    <pre>
+        <code>closest(map, layer, latlng, vertices)</code>
+        vertices parameter <input type="checkbox" id="p_vertices">
+      </pre>
+
+    <pre>
+        <code style="color:green">closestLayer(map, layers, latlng) : <span id='closestLayer'></span> </code>
+      </pre>
+
+    <pre>
+        <code>closestLayerSnap(map, layers, latlng, tolerance, withVertices) : <span id='closestLayerSnap'></span> </code>
+        tolerance parameter (default Infinity if empty) <input type="number" id="p_tolerance">
+        withVertices parameter <input type="checkbox" id="p_withVertices" checked>
+      </pre>
+
+    <pre>
+        <code style="color:red">closestOnSegment(map, latlng, latlngA, latlngB)</code>
+        <code id="closestOnSegment"></code>
+      </pre>
 </body>
 
 </html>
