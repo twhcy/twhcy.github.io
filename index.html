@@ -48,7 +48,10 @@
             "opacity": 0.65
         };
 
-        var myLine = [[120.9722, 24.2133], [120.9725, 24.2138], [120.9822, 24.2140,], [120.9830, 24.2140], [120.9836, 24.2145], [120.9834, 24.2155]];
+        var myLine = [[120.9722, 24.2133], [120.9725, 24.2138]
+            , [120.9760, 24.2140], [120.9822, 24.2140,], [120.9825, 24.215]
+            , [120.9830, 24.2160], [120.9836, 24.2145], [120.9838, 24.2155]
+        ];
 
         myLine.forEach(function (val, indx, arr) {
             var xval = 0.0;
@@ -61,10 +64,15 @@
         //        console.log(myLine);
         var marker = null;
         var markerClosestPolyline1 = null;
+        var markerPb = null;
+        var polyline1 = null;
+        var sMypolyLine = null;
 
         function init() {
             if (marker) map.removeLayer(marker);
             if (markerClosestPolyline1) map.removeLayer(markerClosestPolyline1);
+            if (markerPb) map.removeLayer(markerPb);
+            if (sMypolyLine) map.removeLayer(sMypolyLine);
             polyline1.setStyle({ color: 'blue' });
         }
 
@@ -83,7 +91,7 @@
                 //crs: twd97CRS,
                 continuousWorld: true
             });
-            var polyline1 = L.polyline(myLine, { color: 'blue', className: 'polyline1' }).addTo(map);
+            polyline1 = L.polyline(myLine, { color: 'blue', className: 'polyline1' }).addTo(map);
 
             //https://api.geosition.com/tile/osm-bright-3006/{z}/{x}/{y}.png
             //https://tile.openstreetmap.org/{z}/{x}/{y}.png
@@ -114,22 +122,86 @@
                 document.querySelector("#mlng").value = e.latlng.lng;
                 document.querySelector("#mx").value = twd94xy[0];
                 document.querySelector("#my").value = twd94xy[1];
-
+                document.querySelector("#mLength").value = L.GeometryUtil.accumulatedLengths(polyline1)[1];
                 //var marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+                console.log(L.GeometryUtil.accumulatedLengths(polyline1));
+                var p_vertices = false;
 
-                var p_vertices = document.getElementById('p_vertices').checked,
-                    p_tolerance = document.getElementById('p_tolerance').value !== '' ? parseInt(document.getElementById('p_tolerance').value) : Infinity,
-                    p_withVertices = document.getElementById('p_withVertices').checked,                    
-                    closestPointToPolyline1 = L.GeometryUtil.closest(map, polyline1, e.latlng, p_vertices),                    
-                    closestLayer = L.GeometryUtil.closestLayer(map, bicycle.getLayers().concat(coorsLayer.getLayers(), polyline1, polyline2, polygon1), e.latlng),
-                    closestLayerSnap = L.GeometryUtil.closestLayerSnap(_map, [polyline1, polygon1, polyline2], e.latlng, p_tolerance, p_withVertices),
-                    closestOnSegment = L.GeometryUtil.closestOnSegment(_map, e.latlng, llSegment[0], llSegment[1]);
+                var closestPointToPolyline1 = L.GeometryUtil.closest(map, polyline1, e.latlng, p_vertices);
+                var Pb = L.GeometryUtil.closest(map, polyline1, e.latlng, true);
+                console.log(closestPointToPolyline1);
+                console.log(Pb);
+
                 marker = L.marker(e.latlng).addTo(map).bindPopup(e.latlng + '<br/>' + e.layerPoint).openPopup();
-                markerClosestPolyline1 = L.marker(myLine).addTo(map).bindPopup('Closest point on myLine');
+                markerClosestPolyline1 = L.marker(closestPointToPolyline1).addTo(map).bindPopup('Closest point on myLine');
+                markerPb = L.marker(Pb).addTo(map);
+
+                var myLength = 0;
+                myLine.forEach(function (v, i, a) {
+                    //console.log('Pb:' + [Pb.lat, Pb.lng]);
+                    //console.log('V:' + v);
+                    var sMyLine = Array.from(a);
+                    if (v[0] == Pb.lat && v[1] == Pb.lng) {
+                        console.log(v);
+                        console.log(i);
+                        if (i == 0) {
+                            sMyLine = sMyLine.splice(0, 1);
+                            sMyLine.push([closestPointToPolyline1.lat, closestPointToPolyline1.lng]);
+
+                        }
+                        else if (i == a.length - 1) {
+                            sMyLine = sMyLine.splice(0, i);
+                            sMyLine.push([closestPointToPolyline1.lat, closestPointToPolyline1.lng]);
+
+                        }
+                        else {
+                            //假設點位在後                            
+                            console.log(L.GeometryUtil.belongsSegment(L.latLng([closestPointToPolyline1.lat, closestPointToPolyline1.lng]) ,L.latLng(v), L.latLng(sMyLine[i + 1]),0.2));
+                            if (L.GeometryUtil.belongsSegment(L.latLng([closestPointToPolyline1.lat, closestPointToPolyline1.lng]) ,L.latLng(v), L.latLng(sMyLine[i + 1]),0.2) == true) {
+                                sMyLine = sMyLine.splice(0, i + 1);
+                                sMyLine.push([closestPointToPolyline1.lat, closestPointToPolyline1.lng]);
+                            }
+                            else {
+                                sMyLine = sMyLine.splice(0, i);
+                                sMyLine.push([closestPointToPolyline1.lat, closestPointToPolyline1.lng]);
+                            }
+
+                        }
+                        sMypolyLine = L.polyline(sMyLine, { color: 'red', className: 'sMyLine' }).addTo(map);
+                        document.querySelector("#mLength").value = L.GeometryUtil.length(sMypolyLine);
+                        console.log(sMyLine);
+
+                    }
+                });
+
 
 
             });
+            map.on('mousemove', function (e) {
+                /*
+                init();
+                //console.log(e);
+                console.log(e.latlng);
+                //proj4(proj4('EPSG:3857'),proj4('EPSG:4326'), [x座標值,y座標值]);
+                //console.log(proj4(EPSG4326, EPSG3826, [e.latlng.lng, e.latlng.lat]));
+                //console.log(proj4(proj4('EPSG:4326'),proj4('EPSG:3826'), [e.latlng.lng, e.latlng.lat]));
+                var twd94xy = proj4(proj4('EPSG:4326'), proj4('EPSG:3826'), [e.latlng.lng, e.latlng.lat]);
+    
+                document.querySelector("#mlat").value = e.latlng.lat;
+                document.querySelector("#mlng").value = e.latlng.lng;
+                document.querySelector("#mx").value = twd94xy[0];
+                document.querySelector("#my").value = twd94xy[1];
+    
+                //var marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+                var p_vertices = false;
+    
+                var closestPointToPolyline1 = L.GeometryUtil.closest(map, polyline1, e.latlng, p_vertices) 
+    
+                //marker = L.marker(e.latlng).addTo(map).bindPopup(e.latlng + '<br/>' + e.layerPoint).openPopup();
+                markerClosestPolyline1 = L.marker(closestPointToPolyline1).addTo(map).bindPopup('Closest point on myLine');
+                */
 
+            });
 
 
         });
@@ -142,6 +214,7 @@
     HELLO...<br>
     lat<input type="text" id="mlat" value="0">lng<input type="text" id="mlng" value="0"><br>
     twd97_x<input type="text" id="mx" value="0">twd97_y<input type="text" id="my" value="0"><br>
+    Length<input type="text" id="mLength" value="0"><br>
     <div id="map"></div>
     <pre>
         <code>closest(map, layer, latlng, vertices)</code>
