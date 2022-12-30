@@ -1,0 +1,633 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="stylesheet" href="../Css/leaflet.css" />
+    <script src="../Scripts/Leaflet/leafletAll.js"></script>
+    <script src="../Scripts/Leaflet/proj4-compressed.js"></script>
+    <script src="../Scripts/Leaflet/proj4leaflet.js"></script>
+    <script src="../Scripts/Leaflet/leaflet.geometryutil.js"></script>
+    <style>
+        #map {
+            height: 500px;
+        }
+
+        .arrow-icon {
+            width: 14px;
+            height: 14px;
+        }
+
+            .arrow-icon > div {
+                //border: solid black;
+                //border-width: 0px 3px 3px 0;
+                //display: inline-block;
+                //padding: 3px;
+                margin-left: -5px;
+                margin-top: -5px;
+                transform-origin: center center;
+                font: 24px"Helvetica Neue", Arial, Helvetica, sans-serif;
+            }
+    </style>
+    <script>
+
+        function getValue(varname) {
+            var url = decodeURI(window.location.href);
+            //console.log(decodeURI(url));
+            var qparts = url.split("?");
+            if (qparts.length == 0) { return ""; }
+            var query = qparts[1];
+            var vars = query.split("&");
+            var value = "";
+            for (i = 0; i < vars.length; i++) {
+                var parts = vars[i].split("=");
+                if (parts[0] == varname) {
+                    value = parts[1];
+                    break;
+                }
+            }
+            value = unescape(value);
+            value.replace(/\+/g, " ");
+            return value;
+        }
+        //產生箭頭
+        function getArrows(arrLatlngs, color, arrowCount, mapObj) {
+
+            if (typeof arrLatlngs === undefined || arrLatlngs == null ||
+                (!arrLatlngs.length) || arrLatlngs.length < 2)
+                return [];
+
+            if (typeof arrowCount === 'undefined' || arrowCount == null)
+                arrowCount = 1;
+
+            if (typeof color === 'undefined' || color == null)
+                color = '';
+            else
+                color = 'color:' + color;
+
+            var result = [];
+            for (var i = 1; i < arrLatlngs.length; i++) {
+                var icon = L.divIcon({ className: 'arrow-icon', bgPos: [5, 5], html: '<div style="' + color + ';transform: rotate(' + getAngle(arrLatlngs[i - 1], arrLatlngs[i], -1).toString() + 'deg)">▶</div>' });
+                for (var c = 1; c <= arrowCount; c++) {
+                    result.push(L.marker(myMidPoint(arrLatlngs[i], arrLatlngs[i - 1], (c / (arrowCount + 1)), mapObj), { icon: icon }));
+                }
+            }
+            return result;
+        }
+        function getArrows2(arrLatlngs, color, mapObj) {
+
+            if (typeof arrLatlngs === undefined || arrLatlngs == null ||
+                (!arrLatlngs.length) || arrLatlngs.length < 2)
+                return [];
+
+            if (typeof arrowCount === 'undefined' || arrowCount == null)
+                arrowCount = 1;
+
+            if (typeof color === 'undefined' || color == null)
+                color = '';
+            else
+                color = 'color:' + color;
+            var icon = L.divIcon({ className: 'arrow-icon', bgPos: [0, 0], html: '<div style="' + color + ';transform: rotate(' + getAngle(arrLatlngs[arrLatlngs.length - 2], arrLatlngs[arrLatlngs.length - 1], -1).toString() + 'deg)">➤</div>' });
+            return L.marker(arrLatlngs[arrLatlngs.length - 1], { icon: icon }).addTo(mapObj);
+        }
+
+        function getAngle(latLng1, latlng2, coef) {
+            var dy = latlng2[0] - latLng1[0];
+            var dx = Math.cos(Math.PI / 180 * latLng1[0]) * (latlng2[1] - latLng1[1]);
+            var ang = ((Math.atan2(dy, dx) / Math.PI) * 180 * coef);
+            return (ang).toFixed(2);
+        }
+
+        function myMidPoint(latlng1, latlng2, per, mapObj) {
+            if (!mapObj)
+                throw new Error('map is not defined');
+
+            var halfDist, segDist, dist, p1, p2, ratio,
+                points = [];
+
+            p1 = mapObj.project(new L.latLng(latlng1));
+            p2 = mapObj.project(new L.latLng(latlng2));
+
+            halfDist = distanceTo(p1, p2) * per;
+
+            if (halfDist === 0)
+                return mapObj.unproject(p1);
+
+            dist = distanceTo(p1, p2);
+
+            if (dist > halfDist) {
+                ratio = (dist - halfDist) / dist;
+                var res = mapObj.unproject(new Point(p2.x - ratio * (p2.x - p1.x), p2.y - ratio * (p2.y - p1.y)));
+                return [res.lat, res.lng];
+            }
+
+        }
+
+        function distanceTo(p1, p2) {
+            var x = p2.x - p1.x,
+                y = p2.y - p1.y;
+
+            return Math.sqrt(x * x + y * y);
+        }
+
+        function toPoint(x, y, round) {
+            if (x instanceof Point) {
+                return x;
+            }
+            if (isArray(x)) {
+                return new Point(x[0], x[1]);
+            }
+            if (x === undefined || x === null) {
+                return x;
+            }
+            if (typeof x === 'object' && 'x' in x && 'y' in x) {
+                return new Point(x.x, x.y);
+            }
+            return new Point(x, y, round);
+        }
+
+        function Point(x, y, round) {
+            this.x = (round ? Math.round(x) : x);
+            this.y = (round ? Math.round(y) : y);
+        }
+        /*
+        proj4.defs([
+            [
+                'EPSG:43260',
+                '+title=WGS 84 (long/lat) +proj=longlat +ellps=WGS84 +datum=WGS84 +units=degrees'],
+            [
+                'EPSG:38260',
+                '+title=TWD97 TM2+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=GRS80 +units=公尺 +no_defs'
+            ],
+            [
+                'EPSG:3828',
+                '+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=aust_SA'
+            ]
+        ]);
+        var EPSG3826 = new proj4.Proj('EPSG:38260');//TWD97 121分帶
+        var EPSG3828 = new proj4.Proj('EPSG:3828');//TWD67 121分帶
+        var EPSG4326 = new proj4.Proj('EPSG:43260');//WGS84
+        */
+
+
+
+        var myStyle = {
+            "color": "#ff7800",
+            "weight": 5,
+            "opacity": 0.65
+        };
+
+        var twd97CRS = new L.Proj.CRS("EPSG:3826",
+            "+proj=tmerc +lat_0=0 +lon_0=121 +k=0.9999 +x_0=250000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs",
+            {
+                resolutions: [
+                    4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8
+                ]
+            });
+        var markerSt = null;
+        var markerEd = null;
+        var latlnsS = [];
+        var latlns = [];
+        var latlns = [];
+        var polyline1 = null;
+        var markerClosestPolyline1 = null;
+        var markerPb = null;
+        var sMypolyLine = null;
+        var markArrow = null
+        var seCSatrtForm = null;
+        var p1pLcM = null;
+
+        function init() {
+            if (markerSt) map.removeLayer(markerSt);
+            if (markerEd) map.removeLayer(markerEd);
+            //if (marker) map.removeLayer(marker);
+            if (markerClosestPolyline1) map.removeLayer(markerClosestPolyline1);
+            if (markerPb) map.removeLayer(markerPb);
+            if (sMypolyLine) map.removeLayer(sMypolyLine);
+            if (polyline1 != null) {
+                polyline1.setStyle({ color: 'yellow' });
+            }
+            if (markArrow) map.removeLayer(markArrow);
+            //if (p1pLcM) map.removeLayer(p1p1pLcM);
+        }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+
+            console.log('DOM fully loaded and parsed');
+            //var Stxy = proj4(proj4('EPSG:4326'), proj4('EPSG:3826'), [StX, StY]);
+            const TXstX = document.querySelector("#stX");
+            const TXstY = document.querySelector("#stY");
+            const TXedX = document.querySelector("#edX");
+            const TXedY = document.querySelector("#edY");
+            const TXstL = document.querySelector("#stL");
+            const TXedL = document.querySelector("#edL");
+
+            const qurl = "Hydrofac.aspx";
+            const buFCanal = document.querySelector("#FindCanal");
+            const txFCanal = document.querySelector("#CanalName");
+            const selCanal = document.querySelector("#selCanals");
+            const seCSatrtForm = document.querySelector("#cStartForm");
+
+            const bustPOINT = document.querySelector("#stPOINT");
+            const buedPOINT = document.querySelector("#edPOINT");
+            const buOK = document.querySelector("#ok");
+            var isSelectPoint = "";
+
+            //按查尋
+            buFCanal.addEventListener("click", function (event) {
+                event.preventDefault();
+                if (txFCanal.value === "") {
+                    alert("請輸入渠道名稱!");
+                    return false;
+                }
+                var qParams = new URLSearchParams();
+                qParams.append("cmd", "getGIS");
+                qParams.append("FCanalv", txFCanal.value);
+                postDataForm(qurl, qParams).then((FCanalData) => {
+                    //console.log(FCanalData.status);
+                    if (FCanalData.status == "success") {
+                        selCanal.length = 0;
+                        for (var i in FCanalData.recs) {
+                            var op = document.createElement("option");
+                            var idata = FCanalData.recs[i];
+                            //申請應用系統
+                            op.value = idata.Ex_Sys;
+                            op.text = idata.Sys_cns;
+                            selCanal.appendChild(op);
+                            //console.log(idata);
+                        }
+                        latlnsS = [];
+                        FCanalData.recs.forEach(function (val, idx, arr) {
+                            latlnsS.push(arr[idx].latlns);
+                        });
+                        //console.log(latlns);
+
+                        latlns = FCanalData.recs[0].latlns;
+                        //console.log(latlns);
+                        //latlns = latlns.replace("LINESTRING (", "[[").replace(")", "]]").replaceAll(", ", "]x[").replaceAll(" ", ",").replaceAll("x", ",");
+                        latlns = latlns.replace("LINESTRING (", "").replace(")", "").split(", ");
+                        latlns.forEach(function (val, indx, arr) {
+                            //切成陣列
+                            arr[indx] = arr[indx].split(" ");
+                            //TWD97 轉 WGS84
+                            arr[indx] = proj4(proj4('EPSG:3826'), proj4('EPSG:4326'), arr[indx]);
+                            //XY 轉置
+                            var xval = 0.0;
+                            xval = arr[indx][0];
+                            //console.log(xval);
+                            //console.log(val);
+                            arr[indx][0] = arr[indx][1];
+                            arr[indx][1] = xval;
+                        });
+                        //console.log(latlns);
+                        if (polyline1 != null) {
+                            polyline1.remove();
+                        }
+                        polyline1 = L.polyline(latlns, { color: 'orange' }).addTo(map);
+                        if (markArrow != null) {
+                            markArrow.remove();
+                        }
+                        markArrow = getArrows2(latlns, 'red', map);
+                        map.setView(latlns[0], 16);
+                    }
+                    else {
+                        console.log(FCanalData);
+                        alert(FCanalData.msg);
+                    }
+
+                });
+            });
+            //換渠道
+            selCanal.addEventListener("change", function (event) {
+                event.preventDefault();
+                init();
+                //console.log(selCanal);
+                //alert(selCanal.selectedIndex);
+                latlns = latlnsS[selCanal.selectedIndex];
+                //console.log(latlns);
+                //latlns = latlns.replace("LINESTRING (", "[[").replace(")", "]]").replaceAll(", ", "]x[").replaceAll(" ", ",").replaceAll("x", ",");
+                latlns = latlns.replace("LINESTRING (", "").replace(")", "").split(", ");
+                latlns.forEach(function (val, indx, arr) {
+                    //切成陣列
+                    arr[indx] = arr[indx].split(" ");
+                    //TWD97 轉 WGS84
+                    arr[indx] = proj4(proj4('EPSG:3826'), proj4('EPSG:4326'), arr[indx]);
+                    //XY 轉置
+                    var xval = 0.0;
+                    xval = arr[indx][0];
+                    //console.log(xval);
+                    //console.log(val);
+                    arr[indx][0] = arr[indx][1];
+                    arr[indx][1] = xval;
+                });
+                if (polyline1 != null) {
+                    polyline1.remove();
+                }
+                polyline1 = L.polyline(latlns, { color: 'orange' }).addTo(map);
+                if (markArrow != null) {
+                    markArrow.remove();
+                }
+                markArrow = getArrows2(latlns, 'red', map);
+                map.setView(latlns[0], 16);
+            });
+            //圖面選取起點
+            bustPOINT.addEventListener("click", function (event) {
+                event.preventDefault();
+                if (isSelectPoint == "St") {
+                    isSelectPoint = "";
+                    alert("結束選取");
+                    bustPOINT.style = "";
+                    map.removeLayer(p1pLcM);
+                    p1pLcM == null;
+                }
+                else {
+                    isSelectPoint = "St";
+                    alert("請在圖面選取起點");
+                    bustPOINT.style = "background-color:red";
+                    buedPOINT.style = "";
+                    if (p1pLcM != null) {
+                        map.removeLayer(p1pLcM);
+                        p1pLcM == null;
+                    }
+                    p1pLcM = L.circleMarker([0,0], { color: "red", radius: 5 }).addTo(map);
+                }
+            });
+            //圖面選取終點
+            buedPOINT.addEventListener("click", function (event) {
+                event.preventDefault();
+                if (isSelectPoint == "Ed") {
+                    isSelectPoint = "";
+                    alert("結束選取");
+                    buedPOINT.style = "";
+                    map.removeLayer(p1pLcM);
+                    p1pLcM == null;
+                }
+                else {
+                    isSelectPoint = "Ed";
+                    alert("請在圖面選取終點");
+                    buedPOINT.style = "background-color:blue";
+                    bustPOINT.style = "";
+                    if (p1pLcM != null) {
+                        map.removeLayer(p1pLcM);
+                        p1pLcM == null;
+                    }
+                    p1pLcM = L.circleMarker([0, 0], { color: "blue", radius: 5 }).addTo(map);
+                }
+            });
+
+            //確定回傳
+            buOK.addEventListener("click", function (event) {
+                event.preventDefault();
+                opener.document.getElementById("txt_Ex_Sys").value = selCanal.options[selCanal.selectedIndex].textContent.toString().trim();
+                opener.document.getElementById("hfCanalId").value = selCanal.value.toString().trim();;
+                opener.document.getElementById("txt_start").value = parseInt(TXstL.value);
+                opener.document.getElementById("txt_end").value = parseInt(TXedL.value);
+                opener.document.getElementById("txt_Ex_length").value = parseInt(TXedL.value) - parseInt(TXstL.value);
+                opener.document.getElementById("txt_Start_x").value = Math.round(TXstX.value * 100) / 100;
+                opener.document.getElementById("txt_Start_y").value = Math.round(TXstY.value * 100) / 100;
+                opener.document.getElementById("txt_End_x").value = Math.round(TXedX.value * 100) / 100;
+                opener.document.getElementById("txt_End_y").value = Math.round(TXedY.value * 100) / 100;
+                window.close();
+            });
+
+            map = new L.Map('map', {
+                //crs: twd97CRS,
+                continuousWorld: true
+            });
+
+            //https://api.geosition.com/tile/osm-bright-3006/{z}/{x}/{y}.png
+            //https://tile.openstreetmap.org/{z}/{x}/{y}.png
+
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 20,
+                minZoom: 6,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+            //markerEd = L.marker([Edxy[1], Edxy[0]]).addTo(map);
+            var StX, StY, EdX, EdY, CNm, SF;
+            if (getValue("Do") === "New") {
+                document.querySelector("#Cmt").innerHTML = "請按【起點按鈕】選起點，按【終點按鈕】選終點，完成按【確定】";
+                document.querySelector("#getNewPos").style.display = "block";
+                CNm = getValue("CNm");
+                //起點(順向) 	終點(逆向)
+                SF = getValue("SF");
+                //console.log(document.querySelector("#cStartForm"));
+                seCSatrtForm.childNodes.forEach(function (v, i, c) {
+                    console.log(v.textContent);
+                    if (SF.includes(v.textContent) == true) {
+                        seCSatrtForm.selectedIndex = i;
+                    }
+                });
+
+                //map.setView([24.24, 120.6905], 11);
+            }
+            else {
+                document.querySelector("#Cmt").innerHTML = "顯示起終點";
+                document.querySelector("#getNewPos").style.display = "none";
+
+                StX = getValue("StX");
+                StY = getValue("StY");
+                EdX = getValue("EdX");
+                EdY = getValue("EdY");
+                CNm = getValue("CNm");
+                //console.log([StY, StX]);
+                var Stxy = proj4(proj4('EPSG:3826'), proj4('EPSG:4326'), [StX, StY]);
+                //console.log('Stxy:' + Stxy);
+                var Edxy = proj4(proj4('EPSG:3826'), proj4('EPSG:4326'), [EdX, EdY]);
+                //console.log('Edxy:' + Edxy);
+                TXstX.value = StX;
+                TXstY.value = StY;
+                TXedX.value = EdX;
+                TXedY.value = EdY;
+
+                //起點
+                var mySicon = L.icon({
+                    iconUrl: '../Css/images/markerS2.png',
+                    iconSize: [25, 42],
+                    iconAnchor: [12, 40],
+                    popupAnchor: [-3, -76],
+                    shadowUrl: '../Css/images/marker-shadow.png',
+                    shadowSize: [45, 42],
+                    shadowAnchor: [12, 40]
+                });
+                if (markerSt) markerSt.remove();
+                markerSt = L.marker([Stxy[1], Stxy[0]], { icon: mySicon, title: '起點' }).addTo(map).bindPopup('起點').openPopup();
+                //終點
+                var myEicon = L.icon({
+                    iconUrl: '../Css/images/markerE2.png',
+                    iconSize: [25, 42],
+                    iconAnchor: [12, 40],
+                    popupAnchor: [-3, -76],
+                    shadowUrl: '../Css/images/marker-shadow.png',
+                    shadowSize: [45, 42],
+                    shadowAnchor: [12, 40]
+                });
+                if (markerEd) markerEd.remove();
+                markerEd = L.marker([Edxy[1], Edxy[0]], { icon: myEicon, title: '終點' }).addTo(map);
+                map.setView([Stxy[1], Stxy[0]], 16);
+            }
+            txFCanal.value = CNm;
+            buFCanal.click();
+
+            //var marker = L.marker([51.5, -0.09]).addTo(map);
+            map.on('click', function (e) {
+                if (isSelectPoint == "") {
+                    //未執行選取
+                    return false;
+                }
+                //init();
+                //console.log(e);
+                console.log(e.latlng);
+                //proj4(proj4('EPSG:3857'),proj4('EPSG:4326'), [x座標值,y座標值]);
+                //console.log(proj4(EPSG4326, EPSG3826, [e.latlng.lng, e.latlng.lat]));
+                //console.log(proj4(proj4('EPSG:4326'),proj4('EPSG:3826'), [e.latlng.lng, e.latlng.lat]));
+                var twd94xy = proj4(proj4('EPSG:4326'), proj4('EPSG:3826'), [e.latlng.lng, e.latlng.lat]);
+                //wgs84 xy
+                //document.querySelector("#mlat").value = e.latlng.lat;
+                //document.querySelector("#mlng").value = e.latlng.lng;
+                //twd97 xy
+                //document.querySelector("#mx").value = twd94xy[0];
+                //document.querySelector("#my").value = twd94xy[1];
+                //渠道長度
+                //document.querySelector("#mLength").value = L.GeometryUtil.accumulatedLengths(polyline1)[1];
+
+                //var marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+                //console.log(L.GeometryUtil.accumulatedLengths(polyline1));
+                var p_vertices = false;
+                //渠道上選取的點
+                var closestPointToPolyline1 = L.GeometryUtil.closest(map, polyline1, e.latlng, p_vertices);
+                //接近渠道上選取點的原渠道點
+                var Pb = L.GeometryUtil.closest(map, polyline1, e.latlng, true);
+                console.log(closestPointToPolyline1);
+                console.log(Pb);
+                if (isSelectPoint == "St") {
+                    TXstX.value = twd94xy[0];
+                    TXstY.value = twd94xy[1];
+                    var myicon = L.icon({
+                        iconUrl: '../Css/images/markerS2.png',
+                        iconSize: [25, 42],
+                        iconAnchor: [12, 40],
+                        popupAnchor: [-3, -76],
+                        shadowUrl: '../Css/images/marker-shadow.png',
+                        shadowSize: [45, 42],
+                        shadowAnchor: [12, 40]
+                    });
+                    //if (markerClosestPolyline1) markerClosestPolyline1.remove();
+                    //markerClosestPolyline1 = L.marker(closestPointToPolyline1, { icon: myicon, title: '起點' }).addTo(map).bindPopup('起點:' + closestPointToPolyline1);
+                    if (markerSt) markerSt.remove();
+                    markerSt = L.marker(closestPointToPolyline1, { icon: myicon, title: '起點' }).addTo(map).bindPopup('起點:' + closestPointToPolyline1);
+                }
+                if (isSelectPoint == "Ed") {
+                    TXedX.value = twd94xy[0];
+                    TXedY.value = twd94xy[1];
+
+                    var myicon = L.icon({
+                        iconUrl: '../Css/images/markerE2.png',
+                        iconSize: [25, 42],
+                        iconAnchor: [12, 40],
+                        popupAnchor: [-3, -76],
+                        shadowUrl: '../Css/images/marker-shadow.png',
+                        shadowSize: [45, 42],
+                        shadowAnchor: [12, 40]
+                    });
+                    //if (markerClosestPolyline1) markerClosestPolyline1.remove();
+                    //markerClosestPolyline1 = L.marker(closestPointToPolyline1, { icon: myicon, title: '終點' }).addTo(map).bindPopup('終點:' + closestPointToPolyline1);
+                    if (markerEd) markerEd.remove();
+                    markerEd = L.marker(closestPointToPolyline1, { icon: myicon, title: '終點' }).addTo(map).bindPopup('終點:' + closestPointToPolyline1);
+                }
+
+
+                //marker = L.marker(e.latlng).addTo(map).bindPopup(e.latlng + '<br/>' + e.layerPoint).openPopup();
+                //markerClosestPolyline1 = L.marker(closestPointToPolyline1, { icon: mySicon, title: '起點' }).addTo(map).bindPopup('Closest point on polyline1');
+                /*
+                if (markerPb) markerPb.remove();
+                markerPb = L.marker(Pb).addTo(map);
+                */
+                var myLength = 0;
+                var sMyLine = Array.from(latlns);
+                //console.log(sMyLine);
+                for (var i = 0; i < latlns.length - 1; i++) {
+                    if (L.GeometryUtil.belongsSegment(L.latLng([closestPointToPolyline1.lat, closestPointToPolyline1.lng]), L.latLng(latlns[i]), L.latLng(latlns[i + 1]), 0.02) == true) {
+                        if (seCSatrtForm.value == 1) {
+                            //終點(逆向)
+                            sMyLine = sMyLine.splice(i + 1);
+                            sMyLine.unshift([closestPointToPolyline1.lat, closestPointToPolyline1.lng]);
+                        }
+                        else {
+                            sMyLine = sMyLine.splice(0, i + 1);
+                            sMyLine.push([closestPointToPolyline1.lat, closestPointToPolyline1.lng]);
+                        }
+                        break;
+                    }
+                }
+                //console.log(sMyLine);
+                if (sMypolyLine) sMypolyLine.remove();
+                if (isSelectPoint == "St") {
+                    sMypolyLine = L.polyline(sMyLine, { color: 'red', className: 'sMyLine' }).addTo(map);
+                    TXstL.value = L.GeometryUtil.length(sMypolyLine);
+                }
+                if (isSelectPoint == "Ed") {
+                    sMypolyLine = L.polyline(sMyLine, { color: 'blue', className: 'sMyLine' }).addTo(map);
+                    TXedL.value = L.GeometryUtil.length(sMypolyLine);
+                }
+            });
+            
+            map.on('mousemove', function (e) {
+                if (isSelectPoint == "") {
+                    //未執行選取
+                    return false;
+                }
+                var p1cplatlng = map.layerPointToLatLng(polyline1.closestLayerPoint(e.layerPoint));
+              
+                p1pLcM.setLatLng(p1cplatlng);
+                //console.log(polyline1.closestLayerPoint(L.point(e.latlng)));
+            });
+        });
+        function postDataForm(url, qParams) {
+            return fetch(url,
+                {
+                    method: "POST",
+                    body: qParams,
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+                }
+            )
+                .then((response) => {
+                    // 這裡會得到一個 ReadableStream 的物件
+                    //console.log(response);
+                    // 可以透過 blob(), json(), text() 轉成可用的資訊
+                    return response.json();
+                }).then((jsonData) => {
+                    //console.log(jsonData);
+                    return jsonData;
+                }).catch((err) => {
+                    console.log(`錯誤:${err}`);
+                    return "Error";
+                });
+        }
+
+    </script>
+
+    <title>GIS Page</title>
+</head>
+<body>
+    <div id="Cmt" style="font-size:18px;font-weight:800;"></div>
+    起點：　X<input type="text" id="stX" value="0">　Y<input type="text" id="stY" value="0">樁號<input type="text" id="stL" value="0"><br>
+    終點：　X<input type="text" id="edX" value="0">　Y<input type="text" id="edY" value="0">樁號<input type="text" id="edL" value="0"><br>
+    <div id="getNewPos">
+        樁號起算點<select id="cStartForm"><option value="0">起點(順向)</option><option value="1">終點(逆向)</option></select>
+        渠道名稱：<input id="CanalName" type="text" value="苑裡圳" />
+        <select id="selCanals">    </select>
+        <button id="FindCanal">取得渠道...</button>
+        <button id="stPOINT">起點...</button>
+        <button id="edPOINT">終點...</button>
+        <button id="ok">確定...</button>
+    </div>
+    <div id="map"></div>    
+    <!--
+    lat<input type="text" id="mlat" value="0">lng<input type="text" id="mlng" value="0"><br>
+    twd97_x<input type="text" id="mx" value="0">twd97_y<input type="text" id="my" value="0"><br>
+    Length<input type="text" id="mLength" value="0"><br>
+        -->
+</body>
+
+</html>
