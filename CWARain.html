@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=no">
+    <title>氣象署自動雨量</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.2/dist/leaflet.css" integrity="sha256-sA+zWATbFveLLNqWO2gtiw3HL/lh1giY/Inf1BJ0z14=" crossorigin=""/>
+    <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.9.2/dist/leaflet.js" integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKhg=" crossorigin=""></script>
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+      
+    <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />  
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>  
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js"></script>
+    <script src="Leaflet.Control.Custom.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">    
+    <link rel="stylesheet" href="font-awesome-4.7.0/css/font-awesome.min.css">
+    
+    <style>
+      #map {
+        height: 480px;
+        width: 95%;
+      }
+      #myform {        
+        width: 99%;
+        font-size: 24px;
+      }
+
+         
+        h1 {
+            color: rgb(206, 236, 7);
+            text-align: center;
+        }
+
+        p {
+            font-family: verdana;
+            font-size: 20px;
+        }
+
+
+
+
+        #CWBRain {
+            overflow: auto;
+            width: 95%;
+            height: 450px; /* 固定高度 */
+        }
+
+        #tbRainData {
+            table-layout: fixed;
+            width: 95%; /* 固定寬度 */
+        }
+
+        #tbRainData td:first-child,#tbRainData td:nth-child(2),#tbRainData td:nth-child(3),#tbRainData th:first-child,#tbRainData th:nth-child(2),#tbRainData th:nth-child(3) {
+            position: sticky;
+            left: 0; /* 首行永遠固定於左 */
+            z-index: 1;
+            background-color: lightpink;
+        }
+
+        #tbRainData thead tr th {
+            position: sticky;
+            top: 0; /* 列首永遠固定於上 */
+        }
+
+        #tbRainData th:first-child,#tbRainData th:nth-child(2),#tbRainData th:nth-child(3) {
+            z-index: 2;
+            background-color: lightgoldenrodyellow;
+        }
+
+        #tbRainData td,#tbRainData th {
+            border: 1px solid gray;
+            width: 100px;
+            height: 30px;
+        }
+
+        #tbRainData th {
+            background-color: lightgoldenrodyellow;
+        }
+        #tbRainData thead tr th {
+            position: sticky;
+            top: 0;
+        }
+    </style>
+    <script>
+//bindPopup
+//20240509
+var serverurl = "https://gisportal.iatch.nat.gov.tw";
+var portalurl = serverurl + "/portal";
+var tokenurl = portalurl + "/sharing/rest/generateToken";
+//"https://gisportal.iatch.nat.gov.tw/server/tokens/generateToken";
+//tokenurl = serverurl + "/server/tokens/generateToken";
+var featureServerurl = serverurl + "/server/rest/services/Hosted";
+
+function getToken(u, p) {
+    //https://gisportal.iatch.nat.gov.tw/portal/sharing/rest/generateToken
+
+    var qParams = new URLSearchParams();
+    qParams.append("f", "json");
+    qParams.append("username", u);
+    qParams.append("password", p);
+    qParams.append("client", "referer");
+    qParams.append("referer", "192.168.207.106");
+    qParams.append("ip", "requestip");
+    qParams.append("expiration", "15");
+
+    return postDataForm(tokenurl, qParams).then((data) => {
+        if (data != "Error") {
+            TokenStr = data.token;
+            //GetFeatureStr();
+            return TokenStr;
+            //GetFeatureStr2();
+            /*
+            var FQuery = `&spatialRel=esriSpatialRelIntersects&units=esriSRUnit_Foot&returnGeometry=true&returnDistinctValues=false&returnIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnZ=false&returnM=false&multipatchOption=xyFootprint&returnTrueCurves=false&returnCentroid=false&sqlFormat=none&resultType=&datumTransformation=&f=json`;
+            var qParams = new URLSearchParams();
+            qParams.append("where", "sys_cns+like+'%后里圳%'");
+            qParams.append("outFields", "sys_cns");
+            qParams.append("geometryType", "esriGeometryEnvelope");
+            qParams.append("spatialRel", "esriSpatialRelIntersects");
+            qParams.append("units", "esriSRUnit_Foot");
+            qParams.append("returnGeometry", "true");
+            qParams.append("returnDistinctValues", "false");
+            qParams.append("returnIdsOnly", "false");
+            qParams.append("returnCountOnly", "false");
+            qParams.append("returnExtentOnly", "false");
+            qParams.append("returnZ", "false");
+            qParams.append("returnM", "false");
+            qParams.append("multipatchOption", "xyFootprint");
+            qParams.append("returnTrueCurves", "false");
+            qParams.append("returnCentroid", "false");
+            qParams.append("sqlFormat", "none");
+            qParams.append("resultType", "");
+            qParams.append("datumTransformation", "");
+            qParams.append("f", "json");
+
+            getFeatureServer(TokenStr, "IAtchCanal", qParams);
+            */
+        }
+    });
+}
+
+function GetFeatureStr() {
+    $.ajax({
+        method: "POST",
+        async: false,
+        url: serverurl + "/server/rest/services/Hosted/IAtchCanal/FeatureServer/query",
+        data: { layerDefs: "[{\"layerId\" : 0,  \"where\" : \"sys_cns like '%后里圳%'\", \"outFields\" : \"*\"}]", returnGeometry: true, f: "json", token: TokenStr, where: "sys_cns+like+'%后里圳%'" },
+        //data:{jq:"LManagerlist"},
+        dataType: "json"
+    }
+    ).done(function (data) {
+        console.log(data);
+        FeatureStr = data.layers[0].features;
+    });
+}
+function postDataForm(url, qParams) {
+    return fetch(url,
+        {
+            method: "POST",
+            body: qParams,
+            headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        }
+    )
+        .then((response) => {
+            // 這裡會得到一個 ReadableStream 的物件
+            //console.log(response);
+            // 可以透過 blob(), json(), text() 轉成可用的資訊
+            return response.json();
+        }).then((jsonData) => {
+            //console.log(jsonData);
+            return jsonData;
+        }).catch((err) => {
+            console.log(`錯誤:${err}`);
+            return "Error";
+        });
+}
+
+var map;
+
+function onEachFeature(feature, layer) {
+    //let popupContent = `<p>I started out as a GeoJSON ${feature.geometry.type}, but now I'm a Leaflet vector!</p>`;
+    //let popupContent = `自動雨量站：`;
+    if (feature.properties && feature.properties.popupContent) {
+        popupContent = feature.properties.popupContent;
+    }
+    layer.bindPopup(popupContent);
+}
+function Amapto(mlat,mlng,locationName) {
+    map.panTo({lat: mlat, lng: mlng});
+    map.openPopup(locationName, { lat: mlat, lng: mlng });
+    console.log('panto');
+}
+
+var imageOverlay=null;
+function AddRadar() {
+    var myDate = new Date();
+    var ImgObj=new Image();
+    var urltime = myDate.getFullYear().toString() + (myDate.getMonth() + 1).toString().padStart(2, '0') + myDate.getDate().toString().padStart(2, 0) + myDate.getHours().toString().padStart(2, 0) + myDate.getMinutes().toString().padStart(2, 0).substring(0, 1) + '0';
+    var imageUrl = 'https://www.cwa.gov.tw/Data/radar/CV1_3600_' + urltime + '.png';
+    ImgObj.src= imageUrl;
+    ImgObj.onerror = function (e) {
+        console.log(e);
+        myDate = new Date(myDate.setMinutes(myDate.getMinutes() - 10));
+        urltime = myDate.getFullYear().toString() + (myDate.getMonth() + 1).toString().padStart(2, '0') + myDate.getDate().toString().padStart(2, 0) + myDate.getHours().toString().padStart(2, 0) + myDate.getMinutes().toString().padStart(2, 0).substring(0, 1) + '0';
+        imageUrl = 'https://www.cwa.gov.tw/Data/radar/CV1_3600_' + urltime + '.png';
+        ImgObj.src= imageUrl;
+    };
+    ImgObj.onload=function(e){
+        console.log('ok');
+        var errorOverlayUrl = 'https://cdn-icons-png.flaticon.com/512/110/110686.png';
+        var altText = '中央氣象局雷達回波合成圖';
+        var latLngBounds = L.latLngBounds([[29.10365, 115.042595], [17.6798649, 126.4505]]);
+        //if(imageUrl = 'https://www.cwb.gov.tw/Data/radar/CV1_3600_202304251320.png';)
+        
+        if (imageOverlay) map.removeLayer(imageOverlay);
+
+        imageOverlay = L.imageOverlay(imageUrl, latLngBounds, {
+            opacity: 0.35,
+            errorOverlayUrl: errorOverlayUrl,
+            alt: altText,
+            interactive: true
+        }).addTo(map);
+    };
+
+
+    //https://www.cwb.gov.tw/Data/radar/CV1_3600_202304261100.png
+    //console.log(validateImage(imageUrl));
+    
+
+    for (let index = 0; index < 10; index++) {
+        console.log(myDate.toDateString());
+        console.log(myDate.getFullYear().toString() + (myDate.getMonth() + 1).toString().padStart(2, '0') + myDate.getDate().toString().padStart(2, 0) + myDate.getHours().toString().padStart(2, 0) + myDate.getMinutes().toString().padStart(2, 0).substring(0, 1) + '0');
+        //var urltime = myDate.getFullYear().toString() + (myDate.getMonth() + 1).toString().padStart(2, '0') + myDate.getDate().toString().padStart(2, 0) + myDate.getHours().toString().padStart(2, 0) + myDate.getMinutes().toString().padStart(2, 0).substring(0, 1) + '0';
+        //var imageUrl = 'https://www.cwb.gov.tw/Data/radar/CV1_3600_' + urltime + '.png';
+        //https://www.cwb.gov.tw/Data/radar/CV1_3600_202304261100.png
+        //console.log(validateImage(imageUrl));
+        //ImgObj.src= imageUrl;
+
+
+        //console.log(exitsIMG(imageUrl));
+        /*
+        if (exitsIMG(imageUrl) == true) {
+            //var imageUrl = 'https://www.cwb.gov.tw/Data/radar/CV1_3600_202304251320.png';
+            var errorOverlayUrl = 'https://cdn-icons-png.flaticon.com/512/110/110686.png';
+            var altText = '中央氣象局雷達回波合成圖';
+            var latLngBounds = L.latLngBounds([[29.10365, 115.042595], [17.6798649, 126.4505]]);
+            //if(imageUrl = 'https://www.cwb.gov.tw/Data/radar/CV1_3600_202304251320.png';)
+            var imageOverlay = L.imageOverlay(imageUrl, latLngBounds, {
+                opacity: 0.35,
+                errorOverlayUrl: errorOverlayUrl,
+                alt: altText,
+                interactive: true
+            }).addTo(map);
+            break;
+            return true;        
+        }
+        else {
+            myDate = new Date(myDate.setMinutes(myDate.getMinutes() - 10));
+        }
+        */
+    }
+}
+document.addEventListener("DOMContentLoaded", function () {
+    map = L.map('map');
+    //map = L.map('map').setView([23.505, 121.09], 7);
+    map.setView([23.505, 121.09], 7);
+    L.PM.setOptIn(true);
+    const shmsg = document.querySelector("#mymsg");
+    const crtGeoDataDIV = document.querySelector("#crtGeoData");
+
+    let nIntervId;
+    var RainStation = {
+        "type": "FeatureCollection",
+        "features": []
+    };
+
+    var RainStationLayer = null;
+    var TyphoonLayer = null;
+    var editableLayers = new L.FeatureGroup();
+    map.addLayer(editableLayers);
+    var MyCustomMarker = L.Icon.extend({
+        options: {
+            shadowUrl: null,
+            iconAnchor: new L.Point(12, 12),
+            iconSize: new L.Point(24, 24),
+            iconUrl: 'link/to/image.png'
+        }
+    });
+    
+    var options = {
+        position: 'topright',
+        draw: {
+            polyline: {
+                shapeOptions: {
+                    color: '#f357a1',
+                    weight: 10
+                }
+            },
+            polygon: {
+                allowIntersection: false, // Restricts shapes to simple polygons
+                drawError: {
+                    color: '#e1e100', // Color the shape will turn when intersects
+                    message: '<strong>Oh snap!<strong> you can\'t draw that!' // Message that will show when intersect
+                },
+                shapeOptions: {
+                    color: '#bada55'
+                }
+            },
+            circle: false, // Turns off this drawing tool
+            rectangle: {
+                shapeOptions: {
+                    clickable: false
+                }
+            },
+            marker: {
+                icon: new MyCustomMarker()
+            }
+        },
+        edit: {
+            featureGroup: editableLayers, //REQUIRED!!
+            remove: false
+        }
+    };
+    //var drawControl = new L.Control.Draw(options);
+    //map.addControl(drawControl);
+    //L.marker([23.505, 121.09], { pmIgnore: true }).addTo(map);  
+    //layer.options.pmIgnore = false;
+    //L.PM.reInitLayer(layer); 
+    L.PM.setOptIn(false);
+    
+    //L.marker([24.148845, 120.685875], { pmIgnore: true }).addTo(map);  
+    //var tooltip = L.tooltip()    .setLatLng([23.505, 121.09])    .setContent('Hello world!<br /><img width="100px" height="100px" src="https://img.technews.tw/wp-content/uploads/2020/07/17100918/33886108678_fafba0bf04_k-e1594951790557.jpg">')    .addTo(map);
+
+        //https://www.cwb.gov.tw/Data/radar/CV1_3600_202304260810.png
+
+    map.pm.addControls({
+        position: 'topright',
+        drawCircleMarker: false,
+        drawRectangle:false,
+        drawCircle:false
+    });
+    map.pm.setLang("zh_tw");
+    map.on("pm:create", (e) => {
+        e.layer.options.pmIgnore = false;
+        L.PM.reInitLayer(e.layer);
+        console.log(e);
+      });
+    map.on("pm:drawstart", (e) => {
+        console.log(e);
+      });
+    map.on("pm:drawend", (e) => {
+        console.log(e);
+
+
+    });
+    map.on('pm:update', (e) => {
+        console.log(e);
+    });
+    map.on('move', function(ev) {        
+        console.log(map.getBounds());
+        var mbound = map.getBounds();
+        console.log(mbound._northEast);
+        console.log(mbound._southWest);
+/*
+        map.removeLayer(imageOverlay);
+        latLngBounds = L.latLngBounds([mbound._northEast, mbound._southWest]);
+        console.log(latLngBounds);
+        imageOverlay.setBounds(latLngBounds);
+        map.addLayer(imageOverlay);
+*/
+        if(RainStation.features.length > 0){
+            var mlatlng = L.latLng(RainStation.features[0].geometry.coordinates[1], RainStation.features[0].geometry.coordinates[0]);
+            //console.log(mbound.contains());
+            //console.log('['+RainStation.features[0].geometry.coordinates[1]+','+RainStation.features[0].geometry.coordinates[0]+']');
+            //console.log(mbound.contains('['+RainStation.features[0].geometry.coordinates[1]+','+RainStation.features[0].geometry.coordinates[0]+']'));
+            //console.log(mbound.contains(mlatlng));
+            for (let i = 0; i < RainStation.features.length; i++) {
+                const element = RainStation.features[i];
+                mlatlng = L.latLng(element.geometry.coordinates[1], element.geometry.coordinates[0]);
+                //console.log(mbound.contains(mlatlng));
+                if(mbound.contains(mlatlng)==true){
+                    $("#"+element.properties.stationId).show();
+                }
+                else{
+                    $("#"+element.properties.stationId).hide();
+                }                
+            }
+        }        
+    });
+    map.on('click', function(ev) {
+        //alert(ev.latlng); // ev is an event object (MouseEvent in this case)
+    });
+
+    var bicycleRental = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        121.0505,
+                        23.594
+                    ]
+                },
+                "type": "Feature",
+                "properties": {
+                    "popupContent": "P1"
+                },
+                "id": 51
+            },
+            {
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        121.09983,
+                        23.575028
+                    ]
+                },
+                "type": "Feature",
+                "properties": {
+                    "popupContent": "P2"
+                },
+                "id": 52
+            }
+        ]
+    };
+    var campus = {
+        "type": "Feature",
+        "properties": {
+            "popupContent": "This is the Auraria West Campus",
+            "style": {
+                weight: 2,
+                color: "#999",
+                opacity: 1,
+                fillColor: "#B0DE5C",
+                fillOpacity: 10.8
+            }
+        },
+        "geometry": {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [
+                    [
+                        [121.0432014465332, 23.74732195489861],
+                        [121.0715255737305, 23.74620006835170],
+                        [121.0921249389647, 23.74468219277038],
+                        [121.01067161560059, 23.74362625960105],
+                        [121.01195907592773, 23.74290029616054],
+                        [121.0989913940431, 23.74078835902781],
+                        [121.0758171081543, 23.74059036160317],
+                        [121.0346183776855, 23.74059036160317],
+                        [121.0097274780272, 23.74059036160317],
+                        [121.0062942504881, 23.74072235994946],
+                        [121.0020027160645, 23.74191033368865],
+                        [121.0071525573731, 23.74276830198601],
+                        [121.0097274780272, 23.74369225589818],
+                        [121.0097274780272, 23.74461619742136],
+                        [121.0123023986816, 23.74534214278395],
+                        [121.0183105468751, 23.74613407445653],
+                        [121.0432014465332, 23.74732195489861]
+                    ], [
+                        [121.0361204147337, 23.74354376414072],
+                        [121.0301122665405, 23.74278480127163],
+                        [121.0221729278564, 23.74316428375108],
+                        [121.0283956527711, 23.74390674342741],
+                        [121.0361204147337, 23.74354376414072]
+                    ]
+                ], [
+                    [
+                        [121.0942707061768, 23.73989736613708],
+                        [121.0942707061768, 23.73910536278566],
+                        [121.0685214996338, 23.73923736397631],
+                        [121.0384807586671, 23.73910536278566],
+                        [121.0174522399902, 23.73903936209552],
+                        [121.0041484832764, 23.73910536278566],
+                        [121.0041484832764, 23.73979836621592],
+                        [121.0535011291504, 23.73986436617916],
+                        [121.0942707061768, 23.73989736613708]
+                    ]
+                ]
+            ]
+        }
+    };
+    
+    L.control.custom({
+        position: 'topleft',
+        content: '<button type="button" class="btn btn-default" >' +
+            '<i class="fa fa-magic"></i>' +
+            '</button><br>' +
+            '<button type="button" class="btn btn-info">' +
+            '    <i class="fa fa-compass"></i>' +
+            '</button><br>' +
+            '<button type="button" class="btn btn-primary">' +
+            '    <i class="fa fa-spinner fa-pulse fa-fw"></i>' +
+            '</button>',
+        //classes: 'btn-group-vertical btn-group-sm',
+        style:
+        {
+            margin: '10px',
+            padding: '0px 0 0 0',
+            cursor: 'pointer',
+            height: '25px',
+        },
+        datas:
+        {
+            'foo': 'bar',
+        },
+        events:
+        {
+            click: function (data) {
+                console.log('wrapper div element clicked');
+                console.log(data);
+                console.log(data.target.className );
+                if(data.target.className=="fa fa-magic")
+                {
+                    AddRainDataLayer();
+                }
+            },
+            dblclick: function (data) {
+                console.log('wrapper div element dblclicked');
+                console.log(data);
+            },
+            contextmenu: function (data) {
+                console.log('wrapper div element contextmenu');
+                console.log(data);
+            },
+        }
+    })
+        .addTo(map);
+        
+    const sgetRain = document.querySelector("#getRain");
+    sgetRain.addEventListener("click", function (event) {
+        event.preventDefault();
+        //alert("GET");
+        AddRainDataLayer();      
+        AddTyphoonDataLayer();  
+        //var intervalID = setInterval(AddRainDataLayer, 600000);
+        /*
+        if (!nIntervId) {
+            nIntervId = setInterval(AddRainDataLayer, 600000);
+        }else{
+            clearInterval(nIntervId);
+            nIntervId = null;
+            nIntervId = setInterval(AddRainDataLayer, 600000);
+        }
+        */
+
+    });
+    const sgetRadar = document.querySelector("#getRadar");
+    sgetRadar.addEventListener("click",function(event){
+        //alert('OK');
+        event.preventDefault();
+        AddRadar();
+    });
+
+    const sgetPOS= document.querySelector("#getPOS");
+    const stxtPOS= document.querySelector("#txtPOS");
+    sgetPOS.addEventListener("click",(event)=>{
+        event.preventDefault();
+        //alert(stxtPOS.value);
+        var url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=pjson&singleLine=" + stxtPOS.value;
+        postData(url,{}).then(data=>{
+            console.log(data);
+            if(data.candidates.length>0)
+            {
+                map.flyTo({ lat: data.candidates[0].location.y, lng: data.candidates[0].location.x }, 18);
+                map.openPopup(data.candidates[0].address, {lat: data.candidates[0].location.y, lng: data.candidates[0].location.x});
+            }
+
+        })
+        .catch(error => console.error(error));
+
+    });
+
+    function AddRainDataLayer() {
+        shmsg.innerHTML = new Date().toTimeString();
+        RainStation = {
+            "type": "FeatureCollection",
+            "features": []
+        };
+        /*
+
+        RainStation.features.push(Station);
+        Station.geometry.coordinates = [121.0955, 23.55];
+        console.log(Station);
+        RainStation.features.push(Station);
+        console.log(RainStation);
+        */
+       
+
+        //"https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=rdec-key-123-45678-011121314&stationId=C0F000,C0F0A0,C0F0B0,C0F0C0,C0F0D0,C0F0E0,C0F850,C0F861,C0F930,C0F970,C0F9A0,C0F9I0,C0F9K0,C0F9L0,C0F9M0,C0F9N0,C0F9O0,C0F9P0,C0F9Q0,C0F9R0,C0F9S0,C0F9T0,C0F9U0,C0F9V0,C0F9X0,C0F9Y0,C0F9Z0,C0FA00,C0FA10,C0FA20,C0FA30&elementName=RAIN,MIN_10,HOUR_3,HOUR_6,HOUR_12,HOUR_24,NOW"        
+        postData("https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWB-D01E681D-BBB3-4ABE-8710-E26B236EE683&elementName=RAIN,MIN_10,HOUR_3,HOUR_6,HOUR_12,HOUR_24,NOW"
+            , {  })
+            .then(data => {
+                //console.log(data);
+                if (data.success == "true") {
+                    for (let index = 0; index < data.records.Station.length; index++) {
+                        const element = data.records.Station[index];
+                        var Station;
+                        Station = {
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [element.GeoInfo.Coordinates[0].StationLongitude, element.GeoInfo.Coordinates[0].StationLatitude]
+                            },
+                            "type": "Feature",
+                            "properties": {
+                                "popupContent": `自動雨量站：${element.StationName}<BR>${element.ObsTime.DateTime}<br>Now:${element.RainfallElement.Now.Precipitation}<br>Past10Min:${element.RainfallElement.Past10Min.Precipitation}`,
+                                "data": element.RainfallElement.Past10Min.Precipitation,
+                                "stationId": element.StationId
+                            },
+                            "id": index
+                        };
+                        RainStation.features.push(Station);
+                    }
+                    //console.log(RainStation);
+                    
+                    if (RainStationLayer) map.removeLayer(RainStationLayer);
+                    
+                    RainStationLayer = L.geoJSON(RainStation, {
+
+                        style(feature) {
+                            return feature.properties && feature.properties.style;
+                        },
+
+                        onEachFeature,
+
+                        pointToLayer(feature, latlng) {
+                            var Rr = 5;
+                            var fC= '#eeee11';
+                            //'#ff7800'
+                            if (feature.properties.data > 0) {
+                                //Rr = feature.properties.data*3;
+                                Rr = 3.5;
+                            }
+                            else {
+                                Rr = 1.5;
+                            }
+                            if (feature.properties.data > 0) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#11ee11';
+                            }
+                            if (feature.properties.data > 10) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#1111ff';
+                            }
+                            if (feature.properties.data > 50) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#ee11ff';
+                            }
+                            if (feature.properties.data > 100) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#ff1111';
+                            }
+
+                            return L.circleMarker(latlng, {
+                                radius: Rr,                                
+                                fillColor: fC,
+                                color: '#000',
+                                weight: 1,
+                                opacity: 0.8,
+                                fillOpacity: 0.58,
+                                pmIgnore: true
+                            });
+                        }
+                    }, { pmIgnore: true }).addTo(map);
+                    RainStationLayer.options.pmIgnore = true;
+                    L.PM.reInitLayer(RainStationLayer);
+                    CrtDataTable(data.records.Station, $("#CWBRain"));
+                    
+                }
+            }
+            ) // JSON from `response.json()` call
+            .catch(error => console.error(error));
+
+        //GetCWBRainData();
+    }
+
+    function AddTyphoonDataLayer() {
+        shmsg.innerHTML = new Date().toTimeString();
+        Typhoon = {
+            "type": "FeatureCollection",
+            "features": []
+        };
+        /*
+
+        RainStation.features.push(Station);
+        Station.geometry.coordinates = [121.0955, 23.55];
+        console.log(Station);
+        RainStation.features.push(Station);
+        console.log(RainStation);
+        */
+       
+
+        //"https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=rdec-key-123-45678-011121314&stationId=C0F000,C0F0A0,C0F0B0,C0F0C0,C0F0D0,C0F0E0,C0F850,C0F861,C0F930,C0F970,C0F9A0,C0F9I0,C0F9K0,C0F9L0,C0F9M0,C0F9N0,C0F9O0,C0F9P0,C0F9Q0,C0F9R0,C0F9S0,C0F9T0,C0F9U0,C0F9V0,C0F9X0,C0F9Y0,C0F9Z0,C0FA00,C0FA10,C0FA20,C0FA30&elementName=RAIN,MIN_10,HOUR_3,HOUR_6,HOUR_12,HOUR_24,NOW"        
+        postData("https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=CWB-D01E681D-BBB3-4ABE-8710-E26B236EE683&format=JSON"
+            , {  })
+            .then(data => {
+                console.log(data);
+                if (data.success == "true") {
+                    
+                    console.log(data.records.tropicalCyclones.tropicalCyclone[0].analysisData);
+                    for (let index = 0; index < data.records.tropicalCyclones.tropicalCyclone[0].analysisData.fix.length; index++) {
+                        const element = data.records.tropicalCyclones.tropicalCyclone[0].analysisData.fix[index];
+                        var typos;
+                        var tyradius = 10;
+                        if(index==data.records.tropicalCyclones.tropicalCyclone[0].analysisData.fix.length -1){
+                            //颱風現在位置
+                            if(element.circleOf15Ms){
+                                 tyradius = element.circleOf15Ms.radius;
+                            }
+                        }
+                        typos = {
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [element.coordinate.split(',')[0],element.coordinate.split(',')[1]]
+                            },
+                            "type": "Feature",
+                            "properties": {
+                                "popupContent": `颱風:${data.records.tropicalCyclones.tropicalCyclone[0].cwaTyphoonName}<br>${element.coordinate}<br>${element.fixTime.replace('+08:00','')}`,
+                                "data": element.pressure,
+                                "tyradius": tyradius,
+                                "datatype" : "analysisData",
+                                "stationId": element.fixTime
+                            },
+                            "id": index
+                        };
+                        Typhoon.features.push(typos);
+                        if(index==data.records.tropicalCyclones.tropicalCyclone[0].analysisData.fix.length -1){
+                            var typosnow = JSON.parse(JSON.stringify(typos));
+                            //typosnow.properties.tyradius = 10;
+                            typosnow.properties.datatype = "now";
+                            Typhoon.features.push(typosnow);
+                        }
+                    }
+                    
+                    
+                    
+                    for (let index = 0; index < data.records.tropicalCyclones.tropicalCyclone[0].forecastData.fix.length; index++) {
+                        const element = data.records.tropicalCyclones.tropicalCyclone[0].forecastData.fix[index];
+                        var typos;
+                        var tyradius = 5;
+                        if(element.circleOf15Ms){
+                            tyradius = element.circleOf15Ms.radius;
+                        }
+                        var pTime = new Date(element.initTime.replace('+08:00',''));
+                        pTime.setTime(pTime.getTime()+(element.tau*60*60*1000));
+                        console.log(pTime);
+                        var pTimeSTR = `${pTime.getFullYear()}-${(pTime.getMonth()+1).toString().padStart(2,'0')}-${pTime.getDate().toString().padStart(2,'0')}T${pTime.getHours().toString().padStart(2,'0')}:${pTime.getMinutes().toString().padStart(2,'0')}:${pTime.getSeconds().toString().padStart(2,'0')}`;                        
+                        typos = {
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [element.coordinate.split(',')[0],element.coordinate.split(',')[1]]
+                            },
+                            "type": "Feature",
+                            "properties": {
+                                "popupContent": `預測:${data.records.tropicalCyclones.tropicalCyclone[0].cwaTyphoonName}(${element.tau})<br>${element.coordinate}<br>${element.initTime.replace('+08:00','')}<br>${pTimeSTR}`,
+                                "data": element.pressure,
+                                "tyradius": tyradius,
+                                "datatype" : "forecastData",
+                                "stationId": element.fixTime
+                            },
+                            "id": index
+                        };
+
+                        Typhoon.features.push(typos);
+                    }
+                    if (TyphoonLayer) map.removeLayer(TyphoonLayer);
+                    
+                    TyphoonLayer = L.geoJSON(Typhoon, {
+
+                        style(feature) {
+                            return feature.properties && feature.properties.style;
+                        },
+
+                        onEachFeature,
+
+                        pointToLayer(feature, latlng) {
+                            var Rr = 5;
+                            var fC= '#eeee11';
+                            Rr = feature.properties.tyradius/2;
+
+                            if (feature.properties.data > 500) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#11ee11';
+                            }
+                            if (feature.properties.data > 1000) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#1111ff';
+                            }
+                            if (feature.properties.data > 1500) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#ee11ff';
+                            }
+                            if (feature.properties.data > 2000) {
+                                //Rr = feature.properties.data*3;
+                                fC= '#ff1111';
+                            }
+                            if(feature.properties.datatype=="forecastData"){
+                                fC = '#997766';
+                                Rr = 5;
+                            }
+                            if(feature.properties.datatype=="now"){
+                                fC = '#ff0000';
+                                Rr = 2;
+                            }                            
+
+                            return L.circleMarker(latlng, {
+                                radius: Rr,                                
+                                fillColor: fC,
+                                color: '#000',
+                                weight: 2,
+                                opacity: 0.78,
+                                fillOpacity: 0.38,
+                                pmIgnore: true
+                            });
+                        }
+                    }, { pmIgnore: true }).addTo(map);
+                    TyphoonLayer.options.pmIgnore = true;
+                    L.PM.reInitLayer(TyphoonLayer);                    
+                }
+            }
+            ) // JSON from `response.json()` call
+            .catch(error => console.error(error));
+
+        //GetCWBRainData();
+    }
+    //https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=rdec-key-123-45678-011121314&stationId=C0F000,C0F0A0,C0F0B0,C0F0C0,C0F0D0,C0F0E0,C0F850,C0F861,C0F930,C0F970,C0F9A0,C0F9I0,C0F9K0,C0F9L0,C0F9M0,C0F9N0,C0F9O0,C0F9P0,C0F9Q0,C0F9R0,C0F9S0,C0F9T0,C0F9U0,C0F9V0,C0F9X0,C0F9Y0,C0F9Z0,C0FA00,C0FA10,C0FA20,C0FA30&elementName=RAIN,MIN_10,HOUR_3,HOUR_6,HOUR_12,HOUR_24,NOW
+
+    /*
+    const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20,
+        attribution: "&copy; <a href=\"http://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
+    }).addTo(map);
+    */
+   //國土測繪中心 台灣通用版電子地圖   
+     const tiles = L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}", {
+         maxZoom: 19,
+         id: 'EMAP',
+         attribution: "&copy; <a href=\"https://www.nlsc.gov.tw/Default.aspx\">國土測繪中心 台灣通用版電子地圖</a>"
+     }).addTo(map);
+    //正射影像圖(通用)
+    /*
+    const tilesP = L.tileLayer("https://wmts.nlsc.gov.tw/wmts/PHOTO2021/default/GoogleMapsCompatible/{z}/{y}/{x}", {
+        maxZoom: 20,
+        id: 'PHOTO2021',
+        attribution: "&copy; <a href=\"https://www.nlsc.gov.tw/Default.aspx\">國土測繪中心 110正射影像圖(通用)</a>"
+    }).addTo(map);
+    //臺灣通用電子地圖透明(無門牌) 
+    const tilesEEMAP12 = L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP12/default/GoogleMapsCompatible/{z}/{y}/{x}", {
+        maxZoom: 20,
+        id: 'EMAP12'        
+    }).addTo(map);    
+    */
+
+
+    //道路路網
+    /*
+    const tilesR = L.tileLayer("https://wmts.nlsc.gov.tw/wmts/ROAD/default/GoogleMapsCompatible/{z}/{y}/{x}", {
+        maxZoom: 19,
+        id: 'ROAD',
+        //attribution: "&copy; <a href=\"https://www.nlsc.gov.tw/Default.aspx\">國土測繪中心 道路路網</a>"
+    }).addTo(map); 
+    */
+
+    //公有土地地籍圖
+    /*
+    const tilesD = L.tileLayer("https://wmts.nlsc.gov.tw/wmts/LAND_OPENDATA/default/GoogleMapsCompatible/{z}/{y}/{x}", {
+        maxZoom: 19,
+        id: 'LAND_OPENDATA'        
+    }).addTo(map); 
+    */
+
+
+
+  
+
+    function CrtDataTable(Rainrecords, tbobj) {
+        var strHTML = "";
+    
+        strHTML = "<table id=\"tbRainData\"><thead><tr><th>緯度(lat)</th><th>經度(lon)</th><th>站名(locationName)</th><th>站代碼(stationId)</th>";
+        strHTML += "<th>時間(time.obsTime)</th><th>雨(.Past1hr)</th><th>十分鐘(.Past10Min)</th>";
+        strHTML += "<th>3小時(Past3hr)</th><th>6小時(.Past6hr)</th><th>12小時(.Past12hr)</th>";
+        strHTML += "<th>24小時(.Past24hr)</th><th>現在(.NOW)</th></tr></thead><tbody>";
+    
+        $("#CWBRain").html(strHTML);
+        //$("#CWBRain").append("<td>時間(time.obsTime)</td><td>雨(weatherElement.RAIN)</td><td>十分鐘(weatherElement.MIN_10)</td>");
+        //$("#CWBRain").append("<td>3小時(weatherElement.HOUR_3)</td><td>6小時(weatherElement.HOUR_6)</td><td>12小時(weatherElement.HOUR_12)</td>");
+        //$("#CWBRain").append("<td>24小時(weatherElement.HOUR_24)</td><td>現在(weatherElement.NOW)</td></th>");
+        console.log(Rainrecords);
+    
+        for (var i = 0; i < Rainrecords.length; i++) {
+            strHTML += "<tr id='" + Rainrecords[i].StationId + "' onclick='Amapto(" + Rainrecords[i].GeoInfo.Coordinates[0].StationLatitude + "," + Rainrecords[i].GeoInfo.Coordinates[0].StationLongitude + ",\"" + Rainrecords[i].StationName + "\");' >";
+    
+            strHTML += "<td>" + Rainrecords[i].GeoInfo.Coordinates[0].StationLatitude + "</td>";
+            strHTML += "<td>" + Rainrecords[i].GeoInfo.Coordinates[0].StationLongitude + "</td>";
+            strHTML += "<td>" + Rainrecords[i].StationName + "</td>";
+            strHTML += "<td>" + Rainrecords[i].StationId + "</td>";
+            strHTML += "<td>" + Rainrecords[i].ObsTime.DateTime + "</td>";
+            //雨量資料
+            strHTML += "<td>" + Rainrecords[i].RainfallElement.Past1hr.Precipitation + "</td>";
+            strHTML += "<td>" + Rainrecords[i].RainfallElement.Past10Min.Precipitation + "</td>";
+            
+            //strHTML += "<td>" + Rainrecords[i].RainfallElement.Past2days.Precipitation + "</td>";
+            //strHTML += "<td>" + Rainrecords[i].RainfallElement.Past3days.Precipitation + "</td>";
+            strHTML += "<td>" + Rainrecords[i].RainfallElement.Past3hr.Precipitation + "</td>";
+            strHTML += "<td>" + Rainrecords[i].RainfallElement.Past6Hr.Precipitation + "</td>";            
+            strHTML += "<td>" + Rainrecords[i].RainfallElement.Past12hr.Precipitation + "</td>";
+            strHTML += "<td>" + Rainrecords[i].RainfallElement.Past24hr.Precipitation + "</td>";
+            strHTML += "<td>" + Rainrecords[i].RainfallElement.Now.Precipitation + "</td>";
+            /*
+            for (var j = 0; j < Rainrecords[i].weatherElement.length; j++) {
+                strHTML += "<td>" + Rainrecords[i].weatherElement[j].elementValue + "</td>";
+            }
+            */
+            strHTML += "</tr>";
+        }
+        strHTML += "</tbody></table>";
+        tbobj.html(strHTML);
+    }
+
+    /*
+        const bicycleRentalLayer = L.geoJSON([bicycleRental, campus], {
+    
+            style(feature) {
+                return feature.properties && feature.properties.style;
+            },
+    
+            onEachFeature,
+    
+            pointToLayer(feature, latlng) {
+                return L.circleMarker(latlng, {
+                    radius: 8,
+                    fillColor: '#ff7800',
+                    color: '#000',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+            }
+        }).addTo(map);
+        */
+});
+
+function postData(url, data) {
+    // Default options are marked with *
+    return fetch(url, {
+        //body: JSON.stringify(data), // must match 'Content-Type' header
+        cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+        //credentials: 'same-origin', // include, same-origin, *omit
+        /*
+        headers: {
+            'user-agent': 'Mozilla/4.0 MDN Example',
+            'content-type': 'application/json'
+        },
+        */
+        method: 'GET', // *GET, POST, PUT, DELETE, etc.
+        mode: 'cors', // no-cors, cors, *same-origin
+        redirect: 'follow', // manual, *follow, error
+        //referrer: 'no-referrer', // *client, no-referrer
+    })
+        .then(response => response.json()) // 輸出成 json
+}
+
+//中央氣象局開放資料平臺之資料擷取API
+//https://opendata.cwb.gov.tw/dist/opendata-swagger.html?urls.primaryName=openAPI
+//工作站清單
+//var CWBRainData;
+//取得氣象局開放資料
+function GetCWBRainData() {
+    $.ajax({
+        method: "GET",
+        async: false,
+        url: "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWB-D01E681D-BBB3-4ABE-8710-E26B236EE683",
+        data: { stationId: "C0F000,C0F0A0,C0F0B0,C0F0C0,C0F0D0,C0F0E0,C0F850,C0F861,C0F930,C0F970,C0F9A0,C0F9I0,C0F9K0,C0F9L0,C0F9M0,C0F9N0,C0F9O0,C0F9P0,C0F9Q0,C0F9R0,C0F9S0,C0F9T0,C0F9U0,C0F9V0,C0F9X0,C0F9Y0,C0F9Z0,C0FA00,C0FA10,C0FA20,C0FA30", elementName: "RAIN,MIN_10,HOUR_3,HOUR_6,HOUR_12,HOUR_24,NOW" },
+        //data:{jq:"LManagerlist"},
+        dataType: "json",
+        beforeSend: function () {
+            $("#CWBRain").html("wait....");
+        }
+    }
+    ).done(function (CWBRainData) {
+        //console.log(data);
+        if (CWBRainData.success == "true") {
+            var records = CWBRainData.records.location;
+            var fields = CWBRainData.result.fields;
+            //$('#getRain').append()
+            //var cols = Object.keys(CWBRainData.records);
+            console.log(fields);
+            console.log(records);
+           CrtDataTable(records,$("#CWBRain"));
+        }
+        else {
+            alert("ERROR");
+        }
+        //LManaList = data;
+        //alert(data[0].msg);
+    });
+
+}
+
+    </script>
+  </head>
+  <body style="padding-left: 5%;">
+    <!-- Here is our main header that is used across all the pages of our website -->      
+   <br>
+       <form id="myform">
+            氣象署自動雨量
+            <input id="getRain" type="button" value="取得雨量資料..." />
+            <input id="txtPOS" type="text" value="台中市北區尊賢街11號">
+            <input id="getPOS" type="button" value="定位..." />
+            <input id="getRadar" type="button" value="取得雷達回波圖..." />
+            <msg id="mymsg">showmsg</msg>
+       </form>
+    <br>
+
+    <!-- Here is our page's main content -->
+    
+      <div id="map"></div>
+
+      <!-- It contains an article -->
+   
+      
+      <div id="CWBRain"> </div>
+      <div id="crtGeoData"></div>
+
+    
+
+    <!-- And here is our main footer that is used across all the pages of our website -->
+
+    <footer>
+      <p>©Copyright 2050 by nobody. All rights reversed.</p>
+    </footer>
+
+  </body>
+</html>
